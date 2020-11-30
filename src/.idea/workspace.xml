@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectId" id="1kt9RV9ubd8R2AGvGoBPJH6QZXh" />
+  <component name="PropertiesComponent">
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="configurable.group.appearance" />
+  </component>
+  <component name="SbtLocalSettings">
+    <option name="projectSyncType">
+      <map>
+        <entry key="C:/COURSERA/bigdata-example/example" value="PREVIEW" />
+        <entry key="C:/COURSERA/bigdata-example/example_scala/example" value="PREVIEW" />
+        <entry key="C:/COURSERA/bigdata-example/stackoverflow" value="PREVIEW" />
+        <entry key="C:/COURSERA/bigdata-example/stackoverflow/stackoverflow" value="PREVIEW" />
+        <entry key="C:/COURSERA/bigdata-example/timeusage" value="PREVIEW" />
+        <entry key="C:/COURSERA/bigdata-example/wikipedia" value="PREVIEW" />
+      </map>
+    </option>
+  </component>
+</project>
