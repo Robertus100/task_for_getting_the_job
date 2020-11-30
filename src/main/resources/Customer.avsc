@@ -1,0 +1,23 @@
+{
+ "type": "record",
+ "namespace": "net.mycompany",
+ "name": "Customer",
+ "fields": [
+ { "name": "eventDateTime",
+ "type": "timestamp" },
+ { "name": "eventType",
+ "type": "enum",
+ "symbols" : ["I", "U", "D"] },
+ { "name": "data",
+ "type": "record",
+ "fields": [
+ { "name": "CustomerId",
+ "type": "long" },
+ { "name": "CustomerName",
+ "type": "string" },
+ { "name": "CustomerAddress",
+ "type": "string" }
+ ]
+ }
+ ]
+}
