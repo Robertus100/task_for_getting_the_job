@@ -119,7 +119,7 @@ object PipeAvroConsumer { // There is around 1 million rows of current customers
 //   .save()
 
  val CustomerDDL = spark.sql("""
-  CREATE TABLE `Customer` (`CustomerId` long, `CustomerName` string, `CustomerAddress` string)
+  CREATE EXTERNAL TABLE IF NOT EXISTS `Customer` (`CustomerId` long, `CustomerName` string, `CustomerAddress` string)
   USING parquet
 //  LOCATION '/main/resources/'
   OPTIONS (
@@ -128,7 +128,7 @@ object PipeAvroConsumer { // There is around 1 million rows of current customers
 
  // TODO eventDate should be added to CustomerHistoryDDL for partition purposes
  val CustomerHistoryDDL = spark.sql("""
-  CREATE TABLE `CustomerHistory` (`eventDateTime` timestamp, `eventType` enum ["I", "U", "D"])
+  CREATE EXTERNAL TABLE IF NOT EXISTS `CustomerHistory` (`eventDateTime` timestamp, `eventType` enum ["I", "U", "D"])
   USING parquet
 //  LOCATION '/main/resources/'
   OPTIONS (
