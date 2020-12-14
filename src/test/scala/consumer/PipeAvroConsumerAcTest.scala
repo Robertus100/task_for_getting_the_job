@@ -4,6 +4,8 @@ import net.mycompany.spark.consumer.PipeAvroConsumer
 import org.apache.spark.sql.SparkSession
 import org.scalatest.FunSpec
 
+import scala.util.parsing._
+
 class PipeAvroConsumerAcTest extends FunSpec {
   implicit lazy val spark: SparkSession = SparkSession.builder.master("local[*]")
     .appName("PipeAvroConsumerAcTest").getOrCreate // FIXME spark could be get out to the separated object we will extentd in the tests!
@@ -38,6 +40,14 @@ class PipeAvroConsumerAcTest extends FunSpec {
     val expected = ""
     assert(expected === result)
   }
+
+  // Parse a set of JSON files into an RDD of Map elements
+  import scala.util.parsing.json.JSON
+  val result = schemaSample
+  val map_result=result.map(pair => JSON.parseFull(pair._2).get.asInstanceOf[Map[String,String]])
+  for (record <- map_result.take(2))
+    println(record.getOrElse("firstName",null))
+
 }
 /**
 package com.pmi.ocean.idd.staging_layer.river_hdfs_migrator
