@@ -3,7 +3,7 @@ package net.mycompany.spark.consumer
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.avro.{from_avro, to_avro}
 import org.apache.spark.sql.catalyst.dsl.expressions.StringToAttributeConversionHelper
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, current_date}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.types
 
@@ -126,14 +126,65 @@ object PipeAvroConsumer { // There is around 1 million rows of current customers
     `serialization.format` '1',
     path 'hdfs:///user/zeppelin/Customer')""")
 
- // TODO eventDate should be added to CustomerHistoryDDL for partition purposes
+ // TODO eventDate/daily should be added to CustomerHistoryDDL for partition purposes
  val CustomerHistoryDDL = spark.sql("""
-  CREATE EXTERNAL TABLE IF NOT EXISTS `CustomerHistory` (`eventDateTime` timestamp, `eventType` enum ["I", "U", "D"])
+  CREATE EXTERNAL TABLE IF NOT EXISTS `CustomerHistory` (`eventDateTime` timestamp, `eventType` enum ["I", "U", "D"], `data` record ,`CustomerId` long, `CustomerName` string, `CustomerAddress` string)
   USING parquet
 //  LOCATION '/main/resources/'
   OPTIONS (
     `serialization.format` '1',
     path 'hdfs:///user/zeppelin/CustomerHistory')""")
+
+// INSERT / UPDATE part
+
+// Data deduplication when writing into customer table
+  customerDF
+   .as("logs")
+   .merge(
+    newDedupedLogs.as("newDedupedLogs"),
+    "logs.uniqueId = newDedupedLogs.uniqueId")
+   .whenNotMatched()
+   .insertAll()
+   .execute()
+
+//  Schema validation & Automatic schema evolution
+
+  customerDF.alias("t")
+   .merge(
+    customerDF.alias("s"),
+    "t.CustomerId = s.CustomerId")
+   .whenMatched().updateAll()
+   .whenNotMatched().insertAll()
+   .execute()
+
+//  Performance tuning while merging/updating
+//  Reduce the search space for matches by
+  //  events.eventDateTime = current_date()
+
+  import org.apache.spark.sql._
+  import io.delta.tables._
+
+  // Reset the output aggregates table
+  Seq.empty[(Long, Long)].toDF("key", "count").write
+    .format("delta").mode("overwrite").saveAsTable("aggregates")
+
+  val deltaTable = DeltaTable.forName("aggregates")
+
+  // Function to upsert `microBatchOutputDF` into Delta table using MERGE
+  def upsertToDelta(microBatchOutputDF: DataFrame, batchId: Long) {
+    // ===================================================
+    // For DBR 6.0 and above, you can use Merge Scala APIs
+    // ===================================================
+    deltaTable.as("t")
+      .merge(
+        microBatchOutputDF.as("s"),
+        "s.key = t.key")
+      .whenMatched().updateAll()
+      .whenNotMatched().insertAll()
+      .execute()
+
+
+    //DELETE part
 
 
 
