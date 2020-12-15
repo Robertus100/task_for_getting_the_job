@@ -1,10 +1,13 @@
 package net.mycompany.spark.consumer
 
-import java.nio.file.{Files, Paths}
-
 import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.avro.from_avro
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.avro.{from_avro, to_avro}
+import org.apache.spark.sql.catalyst.dsl.expressions.StringToAttributeConversionHelper
+import org.apache.spark.sql.functions.{col, current_date}
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.types
+
+import java.nio.file.{Files, Paths}
 
 // FIXME add the comments! But more like ScalaDoc not the every line comment!
 /**
@@ -70,24 +73,126 @@ Presentation should be supported with code for each used programming/scripting l
 Provide DDL for Customer and CustomerHistory with suggestion which additional attributes should be there apart of business fields.
  */
 object PipeAvroConsumer { // There is around 1 million rows of current customers and average of 10 changes a day.
+ val conf: SparkConf = new SparkConf()
+   .setAppName("Customer")
+   .setMaster("local")
+
+ val spark: SparkContext = new SparkContext(conf)
+
  val customer = "Customer"
- // high level with subobject to just work with a DF for a start!
+ // high level with sub-object to just work with a DF for a start!
+
  val dfStream = spark.readStream
    .format("kafka")
    .option("kafka.bootstrap.servers", "192.168.1.100:9092") // TODO properties to make it more configurable
    .option("subscribe", "avro_topic")
    .option("startingOffsets", "earliest") // From starting
    .load
+//   .select(
+//    from_avro($"namespace", SchemaBuilder.builder().stringType()).as("namespace"),
+//    from_avro($"name", SchemaBuilder.builder().stringType()).as("name"))
+// alternative way to select avro topic
+/**
+  When reading the avro_topic of a Kafka topic, decode the binary (Avro) data into structured data.
+  The schema of the resulting DataFrame
+ */
+
  val jsonFormatSchema = new String(
   Files.readAllBytes(Paths.get(s"./src/main/resources/$customer.avsc")))
+
 
  val customerDF = dfStream.select(from_avro(col("value"), jsonFormatSchema).as(customer)).select(s"$customer.*")
 // Hive tables CUSTOMER(contains most recent Customer data) and CUSTOMER_HISTORY(shows how Customer data changed over time) -> save as table!
  customerDF.write
    .partitionBy(PARTITION_DATE) // TODO decide witch partition column would be the best?
    .mode(SaveMode.Append)
-   .saveAsTable(customer) // TODO use some global accessable variables to use constance not strings!
+   .saveAsTable(customer) // TODO use some global accessible variables to use constance not strings!
+
+// customerDF
+//   .select(
+//    to_avro($"key").as("key"),
+//    to_avro($"value").as("value"))
+//   .writeStream
+//   .format("kafka")
+//   .option("kafka.bootstrap.servers", "192.168.1.100:9092") // TODO properties to make it more configurable
+//   .option("article", "avro_topic")
+//   .save()
+
+ val CustomerDDL = spark.sql("""
+  CREATE EXTERNAL TABLE IF NOT EXISTS `Customer` (`CustomerId` long, `CustomerName` string, `CustomerAddress` string)
+  USING parquet
+//  LOCATION '/main/resources/'
+  OPTIONS (
+    `serialization.format` '1',
+    path 'hdfs:///user/zeppelin/Customer')""")
+
+ // TODO eventDate/daily should be added to CustomerHistoryDDL for partition purposes
+ val CustomerHistoryDDL = spark.sql("""
+  CREATE EXTERNAL TABLE IF NOT EXISTS `CustomerHistory` (`eventDateTime` timestamp, `eventType` enum ["I", "U", "D"], `data` record ,`CustomerId` long, `CustomerName` string, `CustomerAddress` string)
+  USING parquet
+//  LOCATION '/main/resources/'
+  OPTIONS (
+    `serialization.format` '1',
+    path 'hdfs:///user/zeppelin/CustomerHistory')""")
+
+// INSERT / UPDATE part
+
+// Data deduplication when writing into customer table
+  customerDF
+   .as("logs")
+   .merge(
+    newDedupedLogs.as("newDedupedLogs"),
+    "logs.uniqueId = newDedupedLogs.uniqueId")
+   .whenNotMatched()
+   .insertAll()
+   .execute()
+
+//  Schema validation & Automatic schema evolution
+
+  customerDF.alias("t")
+   .merge(
+    customerDF.alias("s"),
+    "t.CustomerId = s.CustomerId")
+   .whenMatched().updateAll()
+   .whenNotMatched().insertAll()
+   .execute()
+
+//  Performance tuning while merging/updating
+//  Reduce the search space for matches by
+  //  events.eventDateTime = current_date()
+
+  import org.apache.spark.sql._
+  import io.delta.tables._
+
+  // Reset the output aggregates table
+  Seq.empty[(Long, Long)].toDF("key", "count").write
+    .format("delta").mode("overwrite").saveAsTable("aggregates")
+
+  val deltaTable = DeltaTable.forName("aggregates")
+
+  // Function to upsert `microBatchOutputDF` into Delta table using MERGE
+  def upsertToDelta(microBatchOutputDF: DataFrame, batchId: Long) {
+    // ===================================================
+    // For DBR 6.0 and above, you can use Merge Scala APIs
+    // ===================================================
+    deltaTable.as("t")
+      .merge(
+        microBatchOutputDF.as("s"),
+        "s.key = t.key")
+      .whenMatched().updateAll()
+      .whenNotMatched().insertAll()
+      .execute()
+
+
+    //DELETE part
+
+
+
 } // Provide DDL for Customer and CustomerHistory with suggestion which additional attributes should be there apart of business fields.
+
+
+
+
 /**
  * First table contains most recent Customer data.
  * Second table shows how Customer data changed over time.

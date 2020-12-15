@@ -1,0 +1,15 @@
+<component name="libraryTable">
+  <library name="Maven: org.apache.spark:spark-core_2.11:2.4.5">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/spark/spark-core_2.11/2.4.5/spark-core_2.11-2.4.5.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/spark/spark-core_2.11/2.4.5/spark-core_2.11-2.4.5-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/spark/spark-core_2.11/2.4.5/spark-core_2.11-2.4.5-sources.jar!/" />
+      <root url="file://$PROJECT_DIR$/../spark-2.4.5-bin-hadoop2.7" />
+      <root url="file://$PROJECT_DIR$/../spark-2.4.5-bin-hadoop2.7/examples/src/main/java" />
+    </SOURCES>
+  </library>
+</component>
