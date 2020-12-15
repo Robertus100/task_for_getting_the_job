@@ -73,16 +73,39 @@ Presentation should be supported with code for each used programming/scripting l
 Provide DDL for Customer and CustomerHistory with suggestion which additional attributes should be there apart of business fields.
  */
 object PipeAvroConsumer { // There is around 1 million rows of current customers and average of 10 changes a day.
+ // FIXME here leave only the high level usage of the object/classes U'll implement in the separated impl.
+ /**
+ like:
+ PipeAvroConsumer {
+   def main {
+      val inputStream = spark.readStream
+      StreamWorker.doAThingWith(inputStream)
+   }
+ }
+ StreamWorker {
+    def doAThingWith(inputStream) {
+      val customer = prepareACustormer(inputStream)
+      val stateCustomer = saveAsTableAndCreateIfNotExists(customer)
+      val customerInfo = prepareACustormerInfo(inputStream)
+      val stateCustInfo = saveAsTableAndCreateIfNotExists(customerInfo)
+      if (!(stateCustomer&&stateCustInfo)) throw new Exception("Wrong ...!")
+    }
+ }
+ UT on StreamWorkerUT
+ AC on PipeAvroConsumerAC
+ for all U can do on the Customer
+ */
+ 
  val conf: SparkConf = new SparkConf()
    .setAppName("Customer")
    .setMaster("local")
 
- val spark: SparkContext = new SparkContext(conf)
+ val spark: SparkContext = new SparkContext(conf) // FIXME it should be a sparksession not a context, I think.
 
  val customer = "Customer"
  // high level with sub-object to just work with a DF for a start!
 
- val dfStream = spark.readStream
+ val dfStream = spark.readStream // FIXME stream on the level of the StreamWorker can be easily mocket with scala objects
    .format("kafka")
    .option("kafka.bootstrap.servers", "192.168.1.100:9092") // TODO properties to make it more configurable
    .option("subscribe", "avro_topic")
@@ -97,10 +120,10 @@ object PipeAvroConsumer { // There is around 1 million rows of current customers
   The schema of the resulting DataFrame
  */
 
- val jsonFormatSchema = new String(
+ val jsonFormatSchema = new String( // FIXME we can inject the file high level to avoid read it like that on the production
   Files.readAllBytes(Paths.get(s"./src/main/resources/$customer.avsc")))
 
-
+// FIXME move it to the worker
  val customerDF = dfStream.select(from_avro(col("value"), jsonFormatSchema).as(customer)).select(s"$customer.*")
 // Hive tables CUSTOMER(contains most recent Customer data) and CUSTOMER_HISTORY(shows how Customer data changed over time) -> save as table!
  customerDF.write
